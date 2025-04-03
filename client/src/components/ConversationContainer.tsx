@@ -50,7 +50,7 @@ export default function ConversationContainer({
     }
   }, [messages, isListening, isRecognizing, isTranslating, recognitionState.transcript]);
 
-  // Handle playing translated text with emotion
+  // Handle playing translated text
   const handlePlayTranslation = (message: Message) => {
     setPlayingMessageId(message.id);
     
@@ -61,17 +61,7 @@ export default function ConversationContainer({
       onend: () => setPlayingMessageId(null)
     };
     
-    // Add emotion data if available
-    if (message.emotion) {
-      speechOptions.emotion = message.emotion;
-      speechOptions.emotionConfidence = typeof message.emotionConfidence === 'string' 
-        ? parseFloat(message.emotionConfidence) 
-        : message.emotionConfidence;
-      
-      console.log(`Playing translation with emotion: ${message.emotion} (confidence: ${speechOptions.emotionConfidence})`);
-    }
-    
-    // Speak the translated text with emotional context
+    // Speak the translated text
     speak(message.translatedText, speechOptions);
   };
 

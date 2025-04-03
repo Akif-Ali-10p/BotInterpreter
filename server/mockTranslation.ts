@@ -3,11 +3,9 @@
  * 
  * This module provides simulated translation and language detection services
  * for development and testing purposes without relying on external APIs.
- * Now with emotion detection for more nuanced translations.
  */
 
 import { getLibreTranslateCode } from '../client/src/lib/languageUtils';
-import { detectEmotion, enhanceTranslationWithEmotion, EmotionDetectionResult } from './emotionDetection';
 
 // Common prefixes for different languages to simulate translation
 const languagePrefixes: Record<string, string> = {
@@ -46,9 +44,8 @@ const languagePrefixes: Record<string, string> = {
  * Creates a simulated translation of the text
  * For demonstration purposes, this prefixes the text with the target language
  * and adds some language-specific characters to make it look like a translation
- * Now with emotional context enhancement
  */
-function createMockTranslation(text: string, target: string, emotionResult?: EmotionDetectionResult): string {
+function createMockTranslation(text: string, target: string): string {
   // Get the base language code (e.g., 'en' from 'en-US')
   const targetCode = target.split('-')[0];
   
@@ -103,11 +100,6 @@ function createMockTranslation(text: string, target: string, emotionResult?: Emo
       break;
   }
   
-  // Enhance translation with emotion if provided
-  if (emotionResult) {
-    return enhanceTranslationWithEmotion(baseTranslation, emotionResult, targetCode);
-  }
-  
   return baseTranslation;
 }
 
@@ -138,35 +130,29 @@ function detectLanguage(text: string): { language: string; confidence: number } 
 }
 
 /**
- * Mock translation with emotion detection and enhancement
+ * Mock translation function
  */
 export async function mockTranslate(text: string, source: string | null, target: string) {
   // Simulate network delay
   await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // Detect emotion from the input text
-  const emotionResult = detectEmotion(text);
-  console.log(`[Emotion Detection] ${text} => ${emotionResult.primaryEmotion} (confidence: ${emotionResult.confidence.toFixed(2)})`);
   
   // Detect language if not provided
   const detectedLanguage = source ? 
     source : 
     getLibreTranslateCode(detectLanguage(text).language);
   
-  // Create enhanced translation with emotional context
-  const translatedText = createMockTranslation(text, target, emotionResult);
+  // Create translation
+  const translatedText = createMockTranslation(text, target);
   
-  // Return enhanced translation response
+  // Return translation response
   return {
     translatedText,
-    detectedLanguage,
-    emotion: emotionResult.primaryEmotion,
-    emotionConfidence: emotionResult.confidence
+    detectedLanguage
   };
 }
 
 /**
- * Mock language detection with emotion analysis
+ * Mock language detection
  */
 export async function mockDetect(text: string) {
   // Simulate network delay
@@ -175,13 +161,6 @@ export async function mockDetect(text: string) {
   // Detect language
   const languageResult = detectLanguage(text);
   
-  // Detect emotion
-  const emotionResult = detectEmotion(text);
-  
-  // Return combined detection results
-  return {
-    ...languageResult,
-    emotion: emotionResult.primaryEmotion,
-    emotionConfidence: emotionResult.confidence
-  };
+  // Return language detection results
+  return languageResult;
 }

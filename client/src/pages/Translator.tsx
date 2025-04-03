@@ -218,8 +218,8 @@ export default function Translator() {
             targetSpeaker.languageCode
           );
           
-          // Create message with emotion data if available
-          const newMessage: any = {
+          // Create message
+          const newMessage = {
             sessionId,
             speakerId: activeSpeakerId,
             originalText: transcript,
@@ -228,33 +228,16 @@ export default function Translator() {
             targetLanguage: targetSpeaker.languageCode
           };
           
-          // Add emotion data if available in the translation response
-          if ('emotion' in translationResponse && translationResponse.emotion) {
-            newMessage.emotion = translationResponse.emotion;
-            newMessage.emotionConfidence = translationResponse.emotionConfidence;
-            console.log(`Detected emotion: ${translationResponse.emotion} (confidence: ${translationResponse.emotionConfidence})`);
-          }
-          
           // Save message
           const savedMessage = await createMessageMutation.mutateAsync(newMessage);
           
-          // Prepare speech options with emotion
+          // Prepare speech options
           const speechOptions: any = {
             lang: targetSpeaker.languageCode,
             rate: parseFloat(settings.speechRate || '1.0')
           };
           
-          // Add emotion data if available in the saved message
-          if (savedMessage.emotion) {
-            speechOptions.emotion = savedMessage.emotion;
-            speechOptions.emotionConfidence = typeof savedMessage.emotionConfidence === 'string' 
-              ? parseFloat(savedMessage.emotionConfidence) 
-              : savedMessage.emotionConfidence;
-              
-            console.log(`Speaking with emotion: ${savedMessage.emotion} (confidence: ${speechOptions.emotionConfidence})`);
-          }
-          
-          // Speak the translation with emotion
+          // Speak the translation
           speechSynthesis.speak(translationResponse.translatedText, speechOptions);
           
           // Reset transcript

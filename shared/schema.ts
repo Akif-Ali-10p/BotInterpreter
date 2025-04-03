@@ -27,9 +27,6 @@ export const messages = pgTable("messages", {
   originalLanguage: text("original_language").notNull(),
   targetLanguage: text("target_language").notNull(),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
-  // Emotion detection fields
-  emotion: text("emotion"),
-  emotionConfidence: text("emotion_confidence"),
 });
 
 export const insertMessageSchema = createInsertSchema(messages).omit({

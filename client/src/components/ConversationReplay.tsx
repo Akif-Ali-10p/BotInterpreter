@@ -113,13 +113,7 @@ export default function ConversationReplay({
         }
       };
       
-      // Add emotion data if available
-      if (currentMessage.emotion) {
-        speechOptions.emotion = currentMessage.emotion;
-        speechOptions.emotionConfidence = typeof currentMessage.emotionConfidence === 'string' 
-          ? parseFloat(currentMessage.emotionConfidence) 
-          : currentMessage.emotionConfidence;
-      }
+      // No emotion data
       
       // Play the translated text
       speak(currentMessage.translatedText, speechOptions);
