@@ -65,7 +65,7 @@ export function useWebSocket({
       
       // Add a connection timeout
       connectionTimeoutId = window.setTimeout(() => {
-        console.error('WebSocket connection timeout');
+        console.warn('WebSocket connection attempt timed out - server may be starting up');
         if (wsRef.current && wsRef.current.readyState !== WebSocket.OPEN) {
           try {
             wsRef.current.close();
@@ -74,9 +74,12 @@ export function useWebSocket({
           }
           wsRef.current = null;
           
-          // Trigger reconnection logic
+          // Trigger reconnection logic with increased timeout
           if (reconnectAttemptsRef.current < maxReconnectAttempts) {
-            const delay = initialReconnectDelay * Math.pow(1.5, reconnectAttemptsRef.current);
+            // Use a longer delay for the first few attempts to give the server time to start
+            const baseDelay = reconnectAttemptsRef.current < 2 ? 3000 : initialReconnectDelay;
+            const delay = baseDelay * Math.pow(1.5, reconnectAttemptsRef.current);
+            
             console.log(`Connection timed out. Attempting to reconnect in ${delay}ms (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})`);
             
             reconnectTimeoutRef.current = setTimeout(() => {
@@ -88,7 +91,7 @@ export function useWebSocket({
             onError?.(new Error('Connection timed out after multiple attempts'));
           }
         }
-      }, 10000); // 10 second connection timeout
+      }, 15000); // 15 second connection timeout - increased to account for server startup
       
       // Create new connection
       const ws = new WebSocket(wsUrl);
