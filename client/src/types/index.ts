@@ -7,6 +7,17 @@ export interface Language {
 // Speaker types
 export type SpeakerId = 1 | 2;
 
+// Emotion types
+export enum Emotion {
+  NEUTRAL = 'neutral',
+  HAPPY = 'happy',
+  SAD = 'sad',
+  ANGRY = 'angry',
+  SURPRISED = 'surprised',
+  QUESTIONING = 'questioning',
+  EXCITED = 'excited'
+}
+
 // Message types
 export interface Message {
   id: number;
@@ -17,6 +28,9 @@ export interface Message {
   originalLanguage: string;
   targetLanguage: string;
   timestamp: Date;
+  // Emotion detection fields
+  emotion?: Emotion;
+  emotionConfidence?: number;
 }
 
 // Settings types
@@ -35,12 +49,16 @@ export interface Settings {
 export interface TranslationResponse {
   translatedText: string;
   detectedLanguage?: string;
+  emotion?: Emotion;
+  emotionConfidence?: number;
 }
 
 // Detection response
 export interface DetectionResponse {
   language: string;
   confidence: number;
+  emotion?: Emotion;
+  emotionConfidence?: number;
 }
 
 // For speech recognition

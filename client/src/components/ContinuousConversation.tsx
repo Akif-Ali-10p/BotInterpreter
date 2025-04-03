@@ -81,7 +81,7 @@ export default function ContinuousConversation({
     setPassiveSpeaker(activeSpeakerId === 1 ? speaker2 : speaker1);
   }, [activeSpeakerId, speaker1, speaker2]);
 
-  // Play translation audio
+  // Play translation audio with emotion
   const playTranslation = useCallback((message: Message) => {
     if (!message) return;
     
@@ -91,12 +91,25 @@ export default function ContinuousConversation({
     // Find an appropriate voice for the target language
     const voice = getDefaultVoice(languageCode);
     
-    // Speak the translated text
-    speechSynthesis.speak(text, {
+    // Prepare speech options
+    const speechOptions: any = {
       lang: languageCode,
       voice: voice || undefined,
       rate: 1.0
-    });
+    };
+    
+    // Add emotion data if available
+    if (message.emotion) {
+      speechOptions.emotion = message.emotion;
+      speechOptions.emotionConfidence = typeof message.emotionConfidence === 'string' 
+        ? parseFloat(message.emotionConfidence) 
+        : message.emotionConfidence;
+      
+      console.log(`Playing translation with emotion: ${message.emotion} (confidence: ${speechOptions.emotionConfidence})`);
+    }
+    
+    // Speak the translated text with emotion
+    speechSynthesis.speak(text, speechOptions);
   }, [speechSynthesis]);
 
   // Start continuous recognition

@@ -44,14 +44,29 @@ export default function ConversationContainer({
     }
   }, [messages, isListening, isRecognizing, isTranslating, recognitionState.transcript]);
 
-  // Handle playing translated text
+  // Handle playing translated text with emotion
   const handlePlayTranslation = (message: Message) => {
     setPlayingMessageId(message.id);
-    speak(message.translatedText, {
+    
+    // Prepare speech options
+    const speechOptions: any = {
       lang: message.targetLanguage,
       rate: 1.0,
       onend: () => setPlayingMessageId(null)
-    });
+    };
+    
+    // Add emotion data if available
+    if (message.emotion) {
+      speechOptions.emotion = message.emotion;
+      speechOptions.emotionConfidence = typeof message.emotionConfidence === 'string' 
+        ? parseFloat(message.emotionConfidence) 
+        : message.emotionConfidence;
+      
+      console.log(`Playing translation with emotion: ${message.emotion} (confidence: ${speechOptions.emotionConfidence})`);
+    }
+    
+    // Speak the translated text with emotional context
+    speak(message.translatedText, speechOptions);
   };
 
   return (

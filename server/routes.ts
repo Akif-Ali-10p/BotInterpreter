@@ -196,7 +196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Then translate
               const translation = await mockTranslate(text, sourceLanguage, targetLanguage);
               
-              // Create message object
+              // Create message object with emotion data
               const message = {
                 sessionId: clientSessionId,
                 speakerId,
@@ -204,7 +204,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 translatedText: translation.translatedText,
                 originalLanguage: sourceLanguage,
                 targetLanguage,
-                timestamp: new Date()
+                timestamp: new Date(),
+                // Include emotion data if available - convert to string for database storage
+                emotion: translation.emotion,
+                emotionConfidence: translation.emotionConfidence ? translation.emotionConfidence.toString() : null
               };
               
               // Save to database
@@ -214,7 +217,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const clients = sessions.get(clientSessionId)!;
               const messageToSend = JSON.stringify({
                 type: 'translation',
-                message: savedMessage
+                message: savedMessage,
+                emotion: translation.emotion,
+                emotionConfidence: translation.emotionConfidence
               });
               
               for (const client of clients) {

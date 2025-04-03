@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { isSpeechSynthesisSupported } from '@/lib/languageUtils';
+import { Emotion } from '@/types';
 
 interface SpeechSynthesisState {
   isSupported: boolean;
@@ -24,6 +25,8 @@ interface SpeechOptions {
   pitch?: number;
   volume?: number;
   lang?: string;
+  emotion?: Emotion;
+  emotionConfidence?: number;
 }
 
 export function useSpeechSynthesis(): SpeechSynthesisHook {
@@ -66,7 +69,7 @@ export function useSpeechSynthesis(): SpeechSynthesisHook {
     };
   }, [state.isSupported]);
 
-  // Speak function
+  // Speak function with emotion support
   const speak = useCallback((text: string, options: SpeechOptions = {}) => {
     if (!state.isSupported) return;
 
@@ -76,6 +79,61 @@ export function useSpeechSynthesis(): SpeechSynthesisHook {
     // Create a new utterance
     const utterance = new SpeechSynthesisUtterance(text);
     utteranceRef.current = utterance;
+
+    // Apply emotion-based adjustments if emotion is provided
+    if (options.emotion && options.emotionConfidence && options.emotionConfidence > 0.6) {
+      // Default base values
+      let basePitch = options.pitch || 1.0;
+      let baseRate = options.rate || 1.0;
+      let baseVolume = options.volume || 1.0;
+      
+      // Adjust speech parameters based on emotion
+      switch (options.emotion) {
+        case Emotion.HAPPY:
+          // Happier tone: higher pitch, slightly faster
+          basePitch = Math.min(basePitch * 1.15, 2.0);
+          baseRate = Math.min(baseRate * 1.1, 1.5);
+          break;
+          
+        case Emotion.SAD:
+          // Sadder tone: lower pitch, slower
+          basePitch = Math.max(basePitch * 0.9, 0.7);
+          baseRate = Math.max(baseRate * 0.9, 0.8);
+          break;
+          
+        case Emotion.ANGRY:
+          // Angry tone: lower pitch, louder, slightly faster
+          basePitch = Math.max(basePitch * 0.9, 0.8);
+          baseVolume = Math.min(baseVolume * 1.2, 1.0);
+          baseRate = Math.min(baseRate * 1.15, 1.4);
+          break;
+          
+        case Emotion.SURPRISED:
+          // Surprised tone: higher pitch, faster
+          basePitch = Math.min(basePitch * 1.2, 2.0);
+          baseRate = Math.min(baseRate * 1.15, 1.5);
+          break;
+          
+        case Emotion.QUESTIONING:
+          // Questioning tone: slightly higher pitch
+          basePitch = Math.min(basePitch * 1.1, 1.5);
+          break;
+          
+        case Emotion.EXCITED:
+          // Excited tone: higher pitch, faster, louder
+          basePitch = Math.min(basePitch * 1.2, 2.0);
+          baseRate = Math.min(baseRate * 1.2, 1.5);
+          baseVolume = Math.min(baseVolume * 1.1, 1.0);
+          break;
+      }
+      
+      // Apply the emotion-adjusted values
+      options.pitch = basePitch;
+      options.rate = baseRate;
+      options.volume = baseVolume;
+      
+      console.log(`Applying emotion ${options.emotion} to speech (confidence: ${options.emotionConfidence.toFixed(2)}): pitch=${options.pitch.toFixed(2)}, rate=${options.rate.toFixed(2)}, volume=${options.volume.toFixed(2)}`);
+    }
 
     // Set options
     if (options.voice) utterance.voice = options.voice;
