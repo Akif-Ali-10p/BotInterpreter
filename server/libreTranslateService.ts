@@ -18,7 +18,7 @@ import axios from 'axios';
 
 // Default LibreTranslate endpoint - using a public instance
 // You can change this to your preferred instance or self-hosted version
-const LIBRE_TRANSLATE_API = 'https://translate.terraprint.co';
+const LIBRE_TRANSLATE_API = 'https://translate.argosopentech.com';
 
 // Optional API key if the instance requires one
 const API_KEY = process.env.LIBRE_TRANSLATE_API_KEY || '';
@@ -70,7 +70,8 @@ export async function translate(
 
     const response = await axios.post<TranslateResponse>(
       `${LIBRE_TRANSLATE_API}/translate`,
-      requestData
+      requestData,
+      { timeout: 5000 } // 5 second timeout
     );
 
     return {
@@ -120,7 +121,8 @@ export async function detect(text: string): Promise<{ language: string, confiden
 
     const response = await axios.post<DetectResponse[]>(
       `${LIBRE_TRANSLATE_API}/detect`,
-      requestData
+      requestData,
+      { timeout: 5000 } // 5 second timeout
     );
 
     // LibreTranslate returns an array of possible languages with confidence
@@ -160,7 +162,7 @@ export async function detect(text: string): Promise<{ language: string, confiden
  */
 export async function getSupportedLanguages(): Promise<{ code: string, name: string }[]> {
   try {
-    const response = await axios.get(`${LIBRE_TRANSLATE_API}/languages`);
+    const response = await axios.get(`${LIBRE_TRANSLATE_API}/languages`, { timeout: 5000 });
     return response.data;
   } catch (error) {
     console.error('Error fetching supported languages:', error);
