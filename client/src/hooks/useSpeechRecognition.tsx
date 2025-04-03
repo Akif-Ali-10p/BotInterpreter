@@ -4,14 +4,22 @@ import { isSpeechRecognitionSupported } from '@/lib/languageUtils';
 
 interface SpeechRecognitionHook {
   state: SpeechRecognitionState;
-  startListening: (language?: string) => void;
+  startListening: (language?: string, continuous?: boolean, onInterimResult?: (text: string) => void, onFinalResult?: (text: string) => void) => void;
   stopListening: () => void;
   resetTranscript: () => void;
   isSupported: boolean;
 }
 
 // Using either the standard or webkit prefixed SpeechRecognition
-const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+// TypeScript definition for the Speech API
+declare global {
+  interface Window {
+    SpeechRecognition?: any;
+    webkitSpeechRecognition?: any;
+  }
+}
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 export function useSpeechRecognition(): SpeechRecognitionHook {
   const [state, setState] = useState<SpeechRecognitionState>({
@@ -43,13 +51,18 @@ export function useSpeechRecognition(): SpeechRecognitionHook {
     };
   }, [isSupported]);
 
-  const startListening = useCallback((language = 'en-US') => {
+  const startListening = useCallback((
+    language = 'en-US', 
+    continuous = true, 
+    onInterimResult?: (text: string) => void,
+    onFinalResult?: (text: string) => void
+  ) => {
     if (!isSupported) return;
     
     // Initialize speech recognition
     if (!recognitionRef.current) {
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
+      recognitionRef.current.continuous = continuous;
       recognitionRef.current.interimResults = true;
       
       // Set up event handlers
@@ -71,6 +84,16 @@ export function useSpeechRecognition(): SpeechRecognitionHook {
           } else {
             interimTranscript += event.results[i][0].transcript;
           }
+        }
+
+        // Call the callback function for interim results if provided
+        if (interimTranscript && onInterimResult) {
+          onInterimResult(interimTranscript);
+        }
+
+        // Call the callback function for final results if provided
+        if (finalTranscript && onFinalResult) {
+          onFinalResult(finalTranscript);
         }
 
         setState(prev => ({ 

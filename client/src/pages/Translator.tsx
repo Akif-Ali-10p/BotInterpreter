@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import Header from '@/components/Header';
 import LanguageSelector from '@/components/LanguageSelector';
 import ConversationContainer from '@/components/ConversationContainer';
+import ContinuousConversation from '@/components/ContinuousConversation';
 import ControlsPanel from '@/components/ControlsPanel';
 import useSpeechRecognition from '@/hooks/useSpeechRecognition';
 import useSpeechSynthesis from '@/hooks/useSpeechSynthesis';
@@ -12,6 +13,7 @@ import useTranslation from '@/hooks/useTranslation';
 import { Message, SpeakerId, Speaker, Settings } from '@/types';
 import { SUPPORTED_LANGUAGES, getBrowserLanguage } from '@/lib/languageUtils';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeftRight } from 'lucide-react';
 import { formatLanguageName, sleep } from '@/lib/utils';
 
@@ -71,19 +73,23 @@ export default function Translator() {
       const res = await fetch(`/api/settings/${sessionId}`);
       if (!res.ok) throw new Error('Failed to fetch settings');
       return res.json();
-    },
-    onSuccess: (data) => {
+    }
+  });
+  
+  // Update local settings when serverSettings change
+  useEffect(() => {
+    if (serverSettings) {
       // Update local settings with server settings
-      setSettings(data);
-      setDarkMode(data.darkMode || false);
+      setSettings(serverSettings);
+      setDarkMode(serverSettings.darkMode || false);
       
       // Update speakers with language settings
       setSpeakers([
-        { id: 1, languageCode: data.person1Language || 'en-US', name: 'Person 1' },
-        { id: 2, languageCode: data.person2Language || 'es-ES', name: 'Person 2' }
+        { id: 1, languageCode: serverSettings.person1Language || 'en-US', name: 'Person 1' },
+        { id: 2, languageCode: serverSettings.person2Language || 'es-ES', name: 'Person 2' }
       ]);
     }
-  });
+  }, [serverSettings]);
   
   // Create mutation for saving messages
   const createMessageMutation = useMutation({
@@ -285,6 +291,11 @@ export default function Translator() {
     });
   };
 
+  // Handle new message from continuous conversation
+  const handleNewMessage = useCallback((message: Message) => {
+    createMessageMutation.mutate(message);
+  }, [createMessageMutation]);
+
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
@@ -324,27 +335,52 @@ export default function Translator() {
             />
           </div>
           
-          {/* Conversation container */}
-          <ConversationContainer
-            messages={messages}
-            activeSpeakerId={activeSpeakerId}
-            isListening={speechRecognition.state.isListening}
-            isRecognizing={speechRecognition.state.isRecognizing}
-            isTranslating={isTranslating || translation.state.isTranslating}
-            recognitionState={speechRecognition.state}
-            activePersonLanguage={activeSpeaker.languageCode}
-            activePersonName={activeSpeaker.name}
-            onStopListening={handleStopListening}
-          />
-          
-          {/* Controls panel */}
-          <ControlsPanel
-            activeSpeakerId={activeSpeakerId}
-            onSpeakerToggle={handleSpeakerToggle}
-            onStartListening={handleStartListening}
-            onClearConversation={handleClearConversation}
-            isListening={speechRecognition.state.isListening}
-          />
+          {/* Conversation mode tabs */}
+          <Tabs defaultValue="standard" className="flex-1 flex flex-col">
+            <TabsList className="grid grid-cols-2 w-[300px] mx-auto mb-4">
+              <TabsTrigger value="standard">Standard Mode</TabsTrigger>
+              <TabsTrigger value="continuous">Continuous Mode</TabsTrigger>
+            </TabsList>
+            
+            {/* Standard mode */}
+            <TabsContent value="standard" className="flex-1 flex flex-col">
+              <ConversationContainer
+                messages={messages}
+                activeSpeakerId={activeSpeakerId}
+                isListening={speechRecognition.state.isListening}
+                isRecognizing={speechRecognition.state.isRecognizing}
+                isTranslating={isTranslating || translation.state.isTranslating}
+                recognitionState={speechRecognition.state}
+                activePersonLanguage={activeSpeaker.languageCode}
+                activePersonName={activeSpeaker.name}
+                onStopListening={handleStopListening}
+              />
+              
+              {/* Controls panel */}
+              <ControlsPanel
+                activeSpeakerId={activeSpeakerId}
+                onSpeakerToggle={handleSpeakerToggle}
+                onStartListening={handleStartListening}
+                onClearConversation={handleClearConversation}
+                isListening={speechRecognition.state.isListening}
+              />
+            </TabsContent>
+            
+            {/* Continuous mode */}
+            <TabsContent value="continuous" className="flex-1 flex flex-col overflow-hidden">
+              <ContinuousConversation
+                sessionId={sessionId}
+                speaker1={speakers[0]}
+                speaker2={speakers[1]}
+                activeSpeakerId={activeSpeakerId}
+                onSpeakerToggle={handleSpeakerToggle}
+                onClearConversation={handleClearConversation}
+                messages={messages}
+                onNewMessage={handleNewMessage}
+                autoPlay={settings.voiceSelection !== 'none'}
+              />
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
     </div>

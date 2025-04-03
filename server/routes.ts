@@ -1,5 +1,6 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import { WebSocket, WebSocketServer } from "ws";
 import { storage } from "./storage";
 import { insertMessageSchema, insertSettingsSchema } from "@shared/schema";
 import { z } from "zod";
@@ -135,5 +136,154 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  
+  // Set up WebSocket server for real-time communication
+  // Ensure we use a specific path to not conflict with Vite's dev WebSocket 
+  const wss = new WebSocketServer({ 
+    server: httpServer, 
+    path: '/ws' 
+  });
+  
+  // Keep track of sessions and their connections
+  const sessions = new Map<string, WebSocket[]>();
+  
+  wss.on('connection', (ws: WebSocket) => {
+    console.log('WebSocket client connected');
+    let clientSessionId: string | null = null;
+    
+    // Handle messages from clients
+    ws.on('message', async (message: string) => {
+      try {
+        const data = JSON.parse(message);
+        
+        switch (data.type) {
+          case 'join':
+            // Client is joining a session
+            clientSessionId = data.sessionId;
+            
+            // Make sure clientSessionId is a string
+            if (clientSessionId) {
+              // Add client to session
+              if (!sessions.has(clientSessionId)) {
+                sessions.set(clientSessionId, []);
+              }
+              sessions.get(clientSessionId)!.push(ws);
+            }
+            
+            console.log(`Client joined session: ${clientSessionId}`);
+            break;
+            
+          case 'speech':
+            // Real-time speech transcription
+            if (!clientSessionId) {
+              ws.send(JSON.stringify({ 
+                type: 'error', 
+                message: 'Not joined to a session' 
+              }));
+              break;
+            }
+            
+            const { text, speakerId, language, targetLanguage } = data;
+            
+            try {
+              // First detect language if not provided
+              let sourceLanguage = language;
+              if (!sourceLanguage) {
+                const detection = await mockDetect(text);
+                sourceLanguage = detection.language;
+              }
+              
+              // Then translate
+              const translation = await mockTranslate(text, sourceLanguage, targetLanguage);
+              
+              // Create message object
+              const message = {
+                sessionId: clientSessionId,
+                speakerId,
+                originalText: text,
+                translatedText: translation.translatedText,
+                originalLanguage: sourceLanguage,
+                targetLanguage,
+                timestamp: new Date()
+              };
+              
+              // Save to database
+              const savedMessage = await storage.createMessage(message);
+              
+              // Broadcast to all clients in the session
+              const clients = sessions.get(clientSessionId)!;
+              const messageToSend = JSON.stringify({
+                type: 'translation',
+                message: savedMessage
+              });
+              
+              for (const client of clients) {
+                if (client.readyState === WebSocket.OPEN) {
+                  client.send(messageToSend);
+                }
+              }
+            } catch (error) {
+              console.error('Error processing real-time speech:', error);
+              ws.send(JSON.stringify({ 
+                type: 'error', 
+                message: 'Failed to process speech' 
+              }));
+            }
+            break;
+            
+          case 'continuous':
+            // Real-time continuous transcription without saving to database
+            if (!clientSessionId) {
+              ws.send(JSON.stringify({ 
+                type: 'error', 
+                message: 'Not joined to a session' 
+              }));
+              break;
+            }
+            
+            const { interimText, finalSpeakerId, targetLang } = data;
+            
+            // Broadcast the interim text to all clients in the session
+            const sessionClients = sessions.get(clientSessionId)!;
+            const interimData = JSON.stringify({
+              type: 'interim',
+              speakerId: finalSpeakerId,
+              text: interimText
+            });
+            
+            for (const client of sessionClients) {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(interimData);
+              }
+            }
+            break;
+            
+          default:
+            console.warn(`Unknown message type: ${data.type}`);
+        }
+      } catch (error) {
+        console.error('Error handling WebSocket message:', error);
+      }
+    });
+    
+    // Handle client disconnection
+    ws.on('close', () => {
+      console.log('WebSocket client disconnected');
+      if (clientSessionId && sessions.has(clientSessionId)) {
+        // Remove client from session
+        const clients = sessions.get(clientSessionId)!;
+        const index = clients.indexOf(ws);
+        if (index !== -1) {
+          clients.splice(index, 1);
+        }
+        
+        // Clean up empty session
+        if (clients.length === 0) {
+          sessions.delete(clientSessionId);
+        }
+      }
+    });
+  });
+  
   return httpServer;
 }
