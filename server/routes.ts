@@ -4,7 +4,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import { storage } from "./storage";
 import { insertMessageSchema, insertSettingsSchema } from "@shared/schema";
 import { z } from "zod";
-import { mockTranslate, mockDetect } from "./mockTranslation";
+import { translateWithFallback, detectWithFallback } from "./libreTranslateService";
 
 // For session ID generation
 function generateSessionId(): string {
@@ -93,7 +93,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST translate endpoint using mock translation
+  // POST translate endpoint using LibreTranslate
   app.post("/api/translate", async (req: Request, res: Response) => {
     try {
       const { text, source, target } = req.body;
@@ -104,8 +104,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Use mock translation service instead of external API
-      const result = await mockTranslate(text, source, target);
+      // Use LibreTranslate with fallback to mock service
+      const result = await translateWithFallback(text, source, target);
       res.json(result);
     } catch (error) {
       res.status(500).json({ 
@@ -115,7 +115,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST detect language endpoint using mock detection
+  // POST detect language endpoint using LibreTranslate
   app.post("/api/detect", async (req: Request, res: Response) => {
     try {
       const { text } = req.body;
@@ -124,8 +124,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Text is required" });
       }
 
-      // Use mock language detection service
-      const result = await mockDetect(text);
+      // Use LibreTranslate with fallback to mock service for language detection
+      const result = await detectWithFallback(text);
       res.json(result);
     } catch (error) {
       res.status(500).json({ 
@@ -307,12 +307,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // First detect language if not provided
               let sourceLanguage = language;
               if (!sourceLanguage) {
-                const detection = await mockDetect(text);
+                const detection = await detectWithFallback(text);
                 sourceLanguage = detection.language;
               }
               
               // Then translate
-              const translation = await mockTranslate(text, sourceLanguage, targetLanguage);
+              const translation = await translateWithFallback(text, sourceLanguage, targetLanguage);
               
               // Create message object
               const message = {
