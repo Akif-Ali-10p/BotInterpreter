@@ -4,7 +4,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import { storage } from "./storage";
 import { insertMessageSchema, insertSettingsSchema } from "@shared/schema";
 import { z } from "zod";
-import { translateWithFallback, detectWithFallback } from "./libreTranslateService";
+import { translateWithFallback, detectWithFallback } from "./azureTranslateService";
 
 // For session ID generation
 function generateSessionId(): string {
@@ -93,7 +93,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST translate endpoint using LibreTranslate
+  // POST translate endpoint using Azure Translator
   app.post("/api/translate", async (req: Request, res: Response) => {
     try {
       const { text, source, target } = req.body;
@@ -104,7 +104,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Use LibreTranslate with fallback to mock service
+      // Use Azure Translator with fallback to mock service
       const result = await translateWithFallback(text, source, target);
       res.json(result);
     } catch (error) {
@@ -115,7 +115,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST detect language endpoint using LibreTranslate
+  // POST detect language endpoint using Azure Translator
   app.post("/api/detect", async (req: Request, res: Response) => {
     try {
       const { text } = req.body;
@@ -124,7 +124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Text is required" });
       }
 
-      // Use LibreTranslate with fallback to mock service for language detection
+      // Use Azure Translator with fallback to mock service for language detection
       const result = await detectWithFallback(text);
       res.json(result);
     } catch (error) {
