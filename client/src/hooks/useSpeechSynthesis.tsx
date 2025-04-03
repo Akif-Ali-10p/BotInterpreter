@@ -66,9 +66,15 @@ export function useSpeechSynthesis(): SpeechSynthesisHook {
     };
   }, [state.isSupported]);
 
-  // Speak function
+  // Speak function with retry mechanism
   const speak = useCallback((text: string, options: SpeechOptions = {}) => {
     if (!state.isSupported) return;
+
+    // If text is empty, don't try to speak
+    if (!text || text.trim() === '') {
+      console.warn('Speech synthesis called with empty text');
+      return;
+    }
 
     // Cancel any ongoing speech
     window.speechSynthesis.cancel();
@@ -84,27 +90,109 @@ export function useSpeechSynthesis(): SpeechSynthesisHook {
     if (options.volume !== undefined) utterance.volume = options.volume;
     if (options.lang) utterance.lang = options.lang;
 
+    // Attempt counter for retries
+    let attempts = 0;
+    const maxAttempts = 3;
+    
+    // Function to handle speech synthesis completion
+    const handleSpeechComplete = () => {
+      setState(prev => ({ ...prev, isSpeaking: false, isPaused: false, error: null }));
+    };
+    
+    // Function to handle speech synthesis errors with retry
+    const handleSpeechError = (event: SpeechSynthesisErrorEvent) => {
+      console.error('Speech synthesis error:', event.error, 'Attempt:', attempts + 1);
+      
+      // Different handling based on error type
+      if (attempts < maxAttempts) {
+        attempts++;
+        
+        // Delay before retry (increasing with each attempt)
+        const retryDelay = 300 * attempts;
+        
+        console.log(`Retrying speech synthesis in ${retryDelay}ms (attempt ${attempts} of ${maxAttempts})`);
+        
+        // Try again after delay
+        setTimeout(() => {
+          try {
+            window.speechSynthesis.speak(utterance);
+          } catch (e) {
+            console.error('Error during speech synthesis retry:', e);
+            setState(prev => ({ 
+              ...prev, 
+              error: `Failed to speak text after ${attempts} attempts`,
+              isSpeaking: false,
+              isPaused: false
+            }));
+          }
+        }, retryDelay);
+      } else {
+        // Give up after max attempts
+        setState(prev => ({ 
+          ...prev, 
+          error: `Speech synthesis failed after ${maxAttempts} attempts: ${event.error || "Unknown error"}`,
+          isSpeaking: false,
+          isPaused: false
+        }));
+        
+        // Try to get more voices if that was the issue
+        if (state.voices.length === 0) {
+          // Force reload voices
+          try {
+            const voices = window.speechSynthesis.getVoices();
+            if (voices.length > 0) {
+              setState(prev => ({ ...prev, voices }));
+            }
+          } catch (e) {
+            console.error('Failed to reload voices:', e);
+          }
+        }
+      }
+    };
+
     // Set up event handlers
     utterance.onstart = () => {
-      setState(prev => ({ ...prev, isSpeaking: true, isPaused: false }));
+      setState(prev => ({ ...prev, isSpeaking: true, isPaused: false, error: null }));
     };
 
-    utterance.onend = () => {
-      setState(prev => ({ ...prev, isSpeaking: false, isPaused: false }));
-    };
+    utterance.onend = handleSpeechComplete;
+    utterance.onerror = handleSpeechError;
+    
+    // Safari/iOS browser specific issue - ensure utterance doesn't get garbage collected
+    // by maintaining a global reference
+    if (typeof window !== 'undefined') {
+      (window as any).lastUtterance = utterance;
+    }
 
-    utterance.onerror = (event) => {
+    // Start speaking with timeout protection
+    try {
+      window.speechSynthesis.speak(utterance);
+      
+      // Set a timeout to check if speech actually started
+      setTimeout(() => {
+        if (state.isSpeaking === false && attempts === 0) {
+          console.warn('Speech did not start within timeout, attempting restart');
+          // Attempt to restart synthesis
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.resume(); // Workaround for Chrome
+          setTimeout(() => {
+            try {
+              window.speechSynthesis.speak(utterance);
+            } catch (error: any) {
+              console.error('Error during speech restart:', error);
+            }
+          }, 150);
+        }
+      }, 1000);
+    } catch (error: any) {
+      console.error('Error during initial speech synthesis:', error);
       setState(prev => ({ 
         ...prev, 
-        error: event.error || "Speech synthesis error",
-        isSpeaking: false,
-        isPaused: false
+        error: "Failed to initialize speech: " + (error?.message || "Unknown error"),
+        isSpeaking: false
       }));
-    };
-
-    // Start speaking
-    window.speechSynthesis.speak(utterance);
-  }, [state.isSupported]);
+    }
+  }, [state.isSupported, state.voices.length, state.isSpeaking]);
 
   // Pause speaking
   const pause = useCallback(() => {

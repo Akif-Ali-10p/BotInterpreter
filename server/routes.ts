@@ -141,44 +141,162 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Ensure we use a specific path to not conflict with Vite's dev WebSocket 
   const wss = new WebSocketServer({ 
     server: httpServer, 
-    path: '/ws' 
+    path: '/ws',
+    // Add some server-level error handling
+    clientTracking: true,
+    perMessageDeflate: {
+      zlibDeflateOptions: { level: 6 }, // Higher compression level for better performance
+    }
   });
   
   // Keep track of sessions and their connections
-  const sessions = new Map<string, WebSocket[]>();
+  const sessions = new Map<string, Set<WebSocket>>();
   
-  wss.on('connection', (ws: WebSocket) => {
-    console.log('WebSocket client connected');
+  // Keep track of last activity time for each connection
+  const lastActivity = new Map<WebSocket, number>();
+  
+  // Clean up inactive connections periodically
+  const INACTIVE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+  const connectionCleanupInterval = setInterval(() => {
+    const now = Date.now();
+    
+    // Check each connection's last activity time
+    lastActivity.forEach((lastTime, ws) => {
+      if (now - lastTime > INACTIVE_TIMEOUT) {
+        // Connection has been inactive, close it
+        console.log('Closing inactive WebSocket connection');
+        try {
+          ws.close(1000, 'Connection timeout due to inactivity');
+        } catch (err) {
+          console.error('Error closing inactive connection:', err);
+        }
+      }
+    });
+    
+    // Also clean up any broken connections
+    if (wss.clients) {
+      wss.clients.forEach(client => {
+        if (client.readyState !== WebSocket.OPEN && client.readyState !== WebSocket.CONNECTING) {
+          try {
+            client.terminate();
+          } catch (err) {
+            console.error('Error terminating broken connection:', err);
+          }
+          lastActivity.delete(client);
+        }
+      });
+    }
+  }, 60000); // Check every minute
+  
+  // Handle WebSocket server-level errors
+  wss.on('error', (error) => {
+    console.error('WebSocket server error:', error);
+  });
+  
+  wss.on('connection', (ws: WebSocket, req) => {
+    const clientIp = req.socket.remoteAddress || 'unknown';
+    console.log(`WebSocket client connected from ${clientIp}`);
+    
+    // Initialize connection tracking
+    lastActivity.set(ws, Date.now());
+    
+    // Set up ping to keep connection alive
+    const pingInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.ping();
+        } catch (err) {
+          console.error('Error sending ping:', err);
+        }
+      } else {
+        clearInterval(pingInterval);
+      }
+    }, 30000); // Ping every 30 seconds
+    
+    // Track client session
     let clientSessionId: string | null = null;
+    
+    // Update activity timestamp on pong response
+    ws.on('pong', () => {
+      lastActivity.set(ws, Date.now());
+    });
     
     // Handle messages from clients
     ws.on('message', async (message: string) => {
+      // Update last activity time
+      lastActivity.set(ws, Date.now());
+      
+      let data: any;
+      
+      // Parse the message
       try {
-        const data = JSON.parse(message);
+        data = JSON.parse(message);
         
+        // Validate message format
+        if (!data.type) {
+          throw new Error('Message missing type field');
+        }
+      } catch (error) {
+        console.error('Invalid WebSocket message format:', error);
+        safeWSend(ws, JSON.stringify({ 
+          type: 'error', 
+          message: 'Invalid message format' 
+        }));
+        return;
+      }
+      
+      // Handle different message types
+      try {
         switch (data.type) {
           case 'join':
             // Client is joining a session
-            clientSessionId = data.sessionId;
-            
-            // Make sure clientSessionId is a string
-            if (clientSessionId) {
-              // Add client to session
-              if (!sessions.has(clientSessionId)) {
-                sessions.set(clientSessionId, []);
-              }
-              sessions.get(clientSessionId)!.push(ws);
+            if (!data.sessionId || typeof data.sessionId !== 'string') {
+              safeWSend(ws, JSON.stringify({ 
+                type: 'error', 
+                message: 'Invalid session ID' 
+              }));
+              break;
             }
             
-            console.log(`Client joined session: ${clientSessionId}`);
+            clientSessionId = data.sessionId;
+            
+            // We've already validated sessionId is a string above
+            const sessionId = clientSessionId as string;
+            
+            // Add client to session
+            if (!sessions.has(sessionId)) {
+              sessions.set(sessionId, new Set());
+            }
+            sessions.get(sessionId)!.add(ws);
+            
+            console.log(`Client joined session: ${sessionId} (${sessions.get(sessionId)!.size} clients)`);
+            
+            // Confirm join to client
+            safeWSend(ws, JSON.stringify({ 
+              type: 'join',
+              success: true,
+              sessionId: sessionId
+            }));
             break;
             
           case 'speech':
             // Real-time speech transcription
             if (!clientSessionId) {
-              ws.send(JSON.stringify({ 
+              safeWSend(ws, JSON.stringify({ 
                 type: 'error', 
                 message: 'Not joined to a session' 
+              }));
+              break;
+            }
+            
+            // We know clientSessionId is a string at this point
+            const speechSessionId = clientSessionId as string;
+            
+            // Validate required fields
+            if (!data.text || typeof data.speakerId !== 'number' || !data.targetLanguage) {
+              safeWSend(ws, JSON.stringify({ 
+                type: 'error', 
+                message: 'Missing required fields for speech message' 
               }));
               break;
             }
@@ -198,7 +316,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               
               // Create message object
               const message = {
-                sessionId: clientSessionId,
+                sessionId: speechSessionId,
                 speakerId,
                 originalText: text,
                 translatedText: translation.translatedText,
@@ -211,22 +329,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const savedMessage = await storage.createMessage(message);
               
               // Broadcast to all clients in the session
-              const clients = sessions.get(clientSessionId)!;
-              const messageToSend = JSON.stringify({
-                type: 'translation',
-                message: savedMessage
-              });
-              
-              for (const client of clients) {
-                if (client.readyState === WebSocket.OPEN) {
-                  client.send(messageToSend);
-                }
+              const clients = sessions.get(speechSessionId);
+              if (clients && clients.size > 0) {
+                const messageToSend = JSON.stringify({
+                  type: 'translation',
+                  message: savedMessage
+                });
+                
+                broadcastToSession(speechSessionId, messageToSend);
               }
             } catch (error) {
               console.error('Error processing real-time speech:', error);
-              ws.send(JSON.stringify({ 
+              safeWSend(ws, JSON.stringify({ 
                 type: 'error', 
-                message: 'Failed to process speech' 
+                message: 'Failed to process speech: ' + (error instanceof Error ? error.message : 'Unknown error')
               }));
             }
             break;
@@ -234,9 +350,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           case 'continuous':
             // Real-time continuous transcription without saving to database
             if (!clientSessionId) {
-              ws.send(JSON.stringify({ 
+              safeWSend(ws, JSON.stringify({ 
                 type: 'error', 
                 message: 'Not joined to a session' 
+              }));
+              break;
+            }
+            
+            // We know clientSessionId is a string at this point
+            const continuousSessionId = clientSessionId as string;
+            
+            // Validate required fields
+            if (!data.interimText || typeof data.finalSpeakerId !== 'number' || !data.targetLang) {
+              safeWSend(ws, JSON.stringify({ 
+                type: 'error', 
+                message: 'Missing required fields for continuous message'
               }));
               break;
             }
@@ -244,45 +372,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const { interimText, finalSpeakerId, targetLang } = data;
             
             // Broadcast the interim text to all clients in the session
-            const sessionClients = sessions.get(clientSessionId)!;
             const interimData = JSON.stringify({
               type: 'interim',
               speakerId: finalSpeakerId,
               text: interimText
             });
             
-            for (const client of sessionClients) {
-              if (client.readyState === WebSocket.OPEN) {
-                client.send(interimData);
-              }
-            }
+            broadcastToSession(continuousSessionId, interimData);
+            break;
+            
+          case 'ping':
+            // Handle ping message by sending pong response
+            safeWSend(ws, JSON.stringify({
+              type: 'pong',
+              timestamp: data.timestamp,
+              serverTime: Date.now()
+            }));
             break;
             
           default:
             console.warn(`Unknown message type: ${data.type}`);
+            safeWSend(ws, JSON.stringify({ 
+              type: 'error', 
+              message: `Unknown message type: ${data.type}`
+            }));
         }
       } catch (error) {
         console.error('Error handling WebSocket message:', error);
+        safeWSend(ws, JSON.stringify({ 
+          type: 'error', 
+          message: 'Internal server error' 
+        }));
+      }
+    });
+    
+    // Handle client errors
+    ws.on('error', (error) => {
+      console.error('WebSocket client error:', error);
+      // Try to gracefully close on error
+      try {
+        ws.close(1011, 'Internal server error');
+      } catch (e) {
+        console.error('Error closing WebSocket connection after error:', e);
       }
     });
     
     // Handle client disconnection
-    ws.on('close', () => {
-      console.log('WebSocket client disconnected');
-      if (clientSessionId && sessions.has(clientSessionId)) {
-        // Remove client from session
-        const clients = sessions.get(clientSessionId)!;
-        const index = clients.indexOf(ws);
-        if (index !== -1) {
-          clients.splice(index, 1);
-        }
+    ws.on('close', (code, reason) => {
+      console.log(`WebSocket client disconnected (${code}: ${reason || 'No reason provided'})`);
+      
+      // Clear intervals
+      clearInterval(pingInterval);
+      
+      // Clean up activity tracking
+      lastActivity.delete(ws);
+      
+      if (clientSessionId) {
+        // Cast to string since we know it's not null
+        const sessionId = clientSessionId as string;
         
-        // Clean up empty session
-        if (clients.length === 0) {
-          sessions.delete(clientSessionId);
+        if (sessions.has(sessionId)) {
+          // Remove client from session
+          const clients = sessions.get(sessionId)!;
+          clients.delete(ws);
+          
+          console.log(`Client left session ${sessionId} (${clients.size} clients remaining)`);
+          
+          // Clean up empty session
+          if (clients.size === 0) {
+            console.log(`Removing empty session: ${sessionId}`);
+            sessions.delete(sessionId);
+          }
         }
       }
     });
+    
+    // Utility function for safer WebSocket sending
+    function safeWSend(ws: WebSocket, data: string) {
+      if (ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.send(data);
+        } catch (error) {
+          console.error('Error sending WebSocket message:', error);
+          // Try to close the connection if it's in a bad state
+          try {
+            ws.close(1011, 'Send failed');
+          } catch (e) {
+            // Last resort
+            ws.terminate();
+          }
+        }
+      }
+    }
+    
+    // Utility function to broadcast to all clients in a session
+    function broadcastToSession(sessionId: string, data: string) {
+      const clients = sessions.get(sessionId);
+      if (!clients) return;
+      
+      clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          safeWSend(client, data);
+        }
+      });
+    }
+  });
+  
+  // When server is closing, clean up the interval
+  httpServer.on('close', () => {
+    clearInterval(connectionCleanupInterval);
   });
   
   return httpServer;

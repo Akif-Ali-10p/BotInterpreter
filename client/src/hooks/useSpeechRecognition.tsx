@@ -105,19 +105,82 @@ export function useSpeechRecognition(): SpeechRecognitionHook {
       };
 
       recognitionRef.current.onerror = (event: any) => {
-        setState(prev => ({ 
-          ...prev, 
-          error: event.error || "Speech recognition error" 
-        }));
+        console.error('Speech recognition error:', event.error);
+        
+        // Different error handling based on error type
+        switch (event.error) {
+          case 'not-allowed':
+            setState(prev => ({ 
+              ...prev, 
+              error: "Microphone access denied. Please check your browser permissions.",
+              isListening: false
+            }));
+            break;
+          case 'no-speech':
+            setState(prev => ({ 
+              ...prev, 
+              error: "No speech detected. Please try speaking again.",
+              isListening: true // Keep listening for continuous mode
+            }));
+            
+            // Auto-restart for continuous mode after brief delay
+            if (continuous) {
+              setTimeout(() => {
+                try {
+                  recognitionRef.current?.start();
+                } catch (e) {
+                  // Ignore
+                }
+              }, 300);
+            }
+            break;
+          case 'network':
+            setState(prev => ({ 
+              ...prev, 
+              error: "Network error. Please check your connection.",
+              isListening: false
+            }));
+            break;
+          case 'aborted':
+            // This is expected when stopListening is called, so we don't show an error
+            setState(prev => ({ 
+              ...prev, 
+              error: null,
+              isListening: false
+            }));
+            break;
+          default:
+            setState(prev => ({ 
+              ...prev, 
+              error: event.error || "Speech recognition error",
+              isListening: false
+            }));
+        }
       };
 
       recognitionRef.current.onend = () => {
+        // If we're in continuous mode and there was no error, try to restart
+        const wasListening = state.isListening;
+        
         setState(prev => ({ 
           ...prev, 
           isListening: false,
           isRecognizing: false,
           interimTranscript: '' 
         }));
+        
+        // Auto-restart speech recognition if it ended unexpectedly in continuous mode
+        if (continuous && wasListening && !state.error) {
+          try {
+            setTimeout(() => {
+              if (recognitionRef.current) {
+                recognitionRef.current.start();
+              }
+            }, 500);
+          } catch (error) {
+            console.error('Error restarting speech recognition:', error);
+          }
+        }
       };
     }
 
@@ -125,13 +188,90 @@ export function useSpeechRecognition(): SpeechRecognitionHook {
     recognitionRef.current.lang = language;
     
     try {
+      // Check if we need to reset the recognition instance
+      if (recognitionRef.current.grammars && recognitionRef.current.grammars.length > 0) {
+        // Sometimes the SpeechRecognition instance can get into a bad state
+        // Create a new instance to avoid issues
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = continuous;
+        recognitionRef.current.interimResults = true;
+        recognitionRef.current.lang = language;
+      }
+      
       recognitionRef.current.start();
+      
+      // Add a safety timeout to check if recognition actually started
+      setTimeout(() => {
+        if (!state.isListening) {
+          console.warn('Speech recognition failed to start within timeout');
+          
+          // Try to recreate and restart
+          try {
+            if (recognitionRef.current) {
+              recognitionRef.current.stop();
+            }
+            
+            recognitionRef.current = new SpeechRecognition();
+            recognitionRef.current.continuous = continuous;
+            recognitionRef.current.interimResults = true;
+            recognitionRef.current.lang = language;
+            recognitionRef.current.start();
+            
+            setState(prev => ({ 
+              ...prev, 
+              isListening: true,
+              error: null
+            }));
+          } catch (e) {
+            console.error('Failed to restart speech recognition:', e);
+            setState(prev => ({ 
+              ...prev, 
+              error: "Failed to start speech recognition after multiple attempts. Please try again."
+            }));
+          }
+        }
+      }, 3000);
     } catch (error) {
+      console.error('Error starting speech recognition:', error);
+      
       // Handle case where recognition is already started
-      setState(prev => ({ 
-        ...prev, 
-        error: "Could not start speech recognition." 
-      }));
+      if (error instanceof DOMException && error.name === 'InvalidStateError') {
+        // Recognition already running - stop and restart
+        try {
+          recognitionRef.current.stop();
+          setTimeout(() => {
+            try {
+              recognitionRef.current.start();
+            } catch (e) {
+              setState(prev => ({ 
+                ...prev, 
+                error: "Could not restart speech recognition." 
+              }));
+            }
+          }, 300);
+        } catch (e) {
+          // Critical error - create new instance
+          recognitionRef.current = new SpeechRecognition();
+          recognitionRef.current.continuous = continuous;
+          recognitionRef.current.interimResults = true;
+          recognitionRef.current.lang = language;
+          
+          try {
+            recognitionRef.current.start();
+          } catch (e2) {
+            setState(prev => ({ 
+              ...prev, 
+              error: "Critical error with speech recognition. Please reload the page." 
+            }));
+          }
+        }
+      } else {
+        // Other errors
+        setState(prev => ({ 
+          ...prev, 
+          error: "Could not start speech recognition. Please check your microphone access." 
+        }));
+      }
     }
   }, [isSupported]);
 
