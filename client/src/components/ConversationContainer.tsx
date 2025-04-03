@@ -1,12 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
-import { Volume2, Loader2 } from 'lucide-react';
+import { Volume2, Loader2, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { 
   Message, 
   SpeakerId,
   SpeechRecognitionState 
 } from '@/types';
-import { formatLanguageName } from '@/lib/utils';
+import { formatLanguageName, generatePhoneticGuide } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import useSpeechSynthesis from '@/hooks/useSpeechSynthesis';
 
@@ -126,7 +132,43 @@ export default function ConversationContainer({
                         : "bg-secondary/10 dark:bg-secondary/20 rounded-tr-none text-left"
                     )}
                   >
-                    <p className="text-gray-800 dark:text-gray-200 text-sm">{message.translatedText}</p>
+                    <div className="text-gray-800 dark:text-gray-200 text-sm">
+                      {message.translatedText}
+                      
+                      {/* Phonetic pronunciation guide */}
+                      {message.translatedText && message.targetLanguage && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="inline-flex items-center ml-1 align-text-bottom">
+                                <HelpCircle className="h-3 w-3 text-primary/60 cursor-help" />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <div className="space-y-1">
+                                <p className="font-medium text-xs">Pronunciation Guide</p>
+                                <p className="text-xs font-mono">
+                                  {generatePhoneticGuide(message.translatedText, message.targetLanguage) || 
+                                   "No pronunciation guide available for this language."}
+                                </p>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                    
+                    {/* Display phonetic spelling directly below for selected languages */}
+                    {message.targetLanguage?.startsWith('zh') || 
+                     message.targetLanguage?.startsWith('ja') || 
+                     message.targetLanguage?.startsWith('ko') || 
+                     message.targetLanguage?.startsWith('ar') || 
+                     message.targetLanguage?.startsWith('ru') ? (
+                      <div className="mt-1 text-xs text-primary/70 font-mono">
+                        {generatePhoneticGuide(message.translatedText, message.targetLanguage) || 
+                         "[Pronunciation guide]"}
+                      </div>
+                    ) : null}
                   </div>
                   <div 
                     className={cn(
@@ -137,19 +179,28 @@ export default function ConversationContainer({
                     <span className="truncate">From: {formatLanguageName(message.originalLanguage)}</span>
                     <span>•</span>
                     <span className="truncate">To: {formatLanguageName(message.targetLanguage)}</span>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-5 w-5 rounded-full" 
-                      onClick={() => handlePlayTranslation(message)}
-                      disabled={playingMessageId === message.id}
-                    >
-                      {playingMessageId === message.id ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Volume2 className="h-3 w-3" />
-                      )}
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-5 w-5 rounded-full" 
+                            onClick={() => handlePlayTranslation(message)}
+                            disabled={playingMessageId === message.id}
+                          >
+                            {playingMessageId === message.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Volume2 className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                          <p className="text-xs">Play pronunciation</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 </div>
               </div>

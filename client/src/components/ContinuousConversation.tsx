@@ -10,9 +10,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Mic, MicOff, Loader2, Languages, ArrowDownUp, Settings, Trash2 } from "lucide-react";
+import { Mic, MicOff, Loader2, Languages, ArrowDownUp, Settings, Trash2, HelpCircle, Volume2 } from "lucide-react";
 import { Message, SpeakerId, Speaker } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn, generatePhoneticGuide } from '@/lib/utils';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -321,16 +321,58 @@ export default function ContinuousConversation({
             <div className="mt-2 pt-2 border-t border-muted-foreground/20">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs font-medium">Translated</span>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-6 px-2 text-xs"
-                  onClick={() => playTranslation(message)}
-                >
-                  Play
-                </Button>
+                <div className="flex items-center gap-1">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 w-6 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                          }}
+                        >
+                          <HelpCircle className="h-3 w-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs">
+                        <div className="space-y-1">
+                          <p className="font-medium text-xs">Pronunciation Guide</p>
+                          <p className="text-xs font-mono">
+                            {generatePhoneticGuide(message.translatedText, message.targetLanguage) || 
+                            "No pronunciation guide available for this language."}
+                          </p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 flex items-center gap-1 px-2 text-xs"
+                    onClick={() => playTranslation(message)}
+                  >
+                    <Volume2 className="h-3 w-3" />
+                    Play
+                  </Button>
+                </div>
               </div>
               <p>{message.translatedText}</p>
+              
+              {/* Display phonetic guide for languages with different writing systems */}
+              {(message.targetLanguage?.startsWith('zh') || 
+                message.targetLanguage?.startsWith('ja') || 
+                message.targetLanguage?.startsWith('ko') || 
+                message.targetLanguage?.startsWith('ar') || 
+                message.targetLanguage?.startsWith('ru')) && (
+                <p className="mt-1 text-xs opacity-75 font-mono">
+                  {generatePhoneticGuide(message.translatedText, message.targetLanguage) || 
+                  "[Pronunciation guide]"}
+                </p>
+              )}
             </div>
           </div>
         ))}
