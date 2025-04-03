@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertMessageSchema, insertSettingsSchema } from "@shared/schema";
 import { z } from "zod";
+import { mockTranslate, mockDetect } from "./mockTranslation";
 
 // For session ID generation
 function generateSessionId(): string {
@@ -91,7 +92,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST translate endpoint using LibreTranslate API
+  // POST translate endpoint using mock translation
   app.post("/api/translate", async (req: Request, res: Response) => {
     try {
       const { text, source, target } = req.body;
@@ -102,32 +103,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Use LibreTranslate API (free and open-source)
-      const response = await fetch("https://libretranslate.de/translate", {
-        method: "POST",
-        body: JSON.stringify({
-          q: text,
-          source: source || "auto", // Auto detect if not specified
-          target: target,
-          format: "text",
-          api_key: ""  // Free tier
-        }),
-        headers: { "Content-Type": "application/json" }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        return res.status(response.status).json({ 
-          message: "Translation service error", 
-          details: errorData 
-        });
-      }
-
-      const data = await response.json();
-      res.json({ 
-        translatedText: data.translatedText,
-        detectedLanguage: data.detectedLanguage?.language || source
-      });
+      // Use mock translation service instead of external API
+      const result = await mockTranslate(text, source, target);
+      res.json(result);
     } catch (error) {
       res.status(500).json({ 
         message: "Translation failed", 
@@ -136,7 +114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST detect language endpoint
+  // POST detect language endpoint using mock detection
   app.post("/api/detect", async (req: Request, res: Response) => {
     try {
       const { text } = req.body;
@@ -145,26 +123,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Text is required" });
       }
 
-      // Use LibreTranslate API for language detection
-      const response = await fetch("https://libretranslate.de/detect", {
-        method: "POST",
-        body: JSON.stringify({
-          q: text
-        }),
-        headers: { "Content-Type": "application/json" }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        return res.status(response.status).json({ 
-          message: "Language detection error", 
-          details: errorData 
-        });
-      }
-
-      const detections = await response.json();
-      // Return the highest confidence detection
-      res.json(detections[0] || { language: "en", confidence: 0 });
+      // Use mock language detection service
+      const result = await mockDetect(text);
+      res.json(result);
     } catch (error) {
       res.status(500).json({ 
         message: "Language detection failed", 

@@ -9,6 +9,8 @@ import {
   type User,
   type InsertUser
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
 
 export interface IStorage {
   // User management
@@ -26,95 +28,101 @@ export interface IStorage {
   createOrUpdateSettings(settings: Partial<InsertSettings> & { userId: string }): Promise<Settings>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private messages: Map<string, Message[]>;
-  private settings: Map<string, Settings>;
-  currentUserId: number;
-  currentMessageId: number;
-  currentSettingsId: number;
-
-  constructor() {
-    this.users = new Map();
-    this.messages = new Map();
-    this.settings = new Map();
-    this.currentUserId = 1;
-    this.currentMessageId = 1;
-    this.currentSettingsId = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   // User methods
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentUserId++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
     return user;
   }
 
   // Message methods
   async getMessages(sessionId: string): Promise<Message[]> {
-    return this.messages.get(sessionId) || [];
+    return await db
+      .select()
+      .from(messages)
+      .where(eq(messages.sessionId, sessionId))
+      .orderBy(messages.timestamp);
   }
 
   async createMessage(insertMessage: InsertMessage): Promise<Message> {
-    const id = this.currentMessageId++;
-    const message: Message = { 
-      ...insertMessage, 
-      id,
-      timestamp: new Date() 
+    const messageWithTimestamp = {
+      ...insertMessage,
+      timestamp: new Date()
     };
     
-    const sessionMessages = this.messages.get(insertMessage.sessionId) || [];
-    sessionMessages.push(message);
-    this.messages.set(insertMessage.sessionId, sessionMessages);
+    const [message] = await db
+      .insert(messages)
+      .values(messageWithTimestamp)
+      .returning();
     
     return message;
   }
 
   async clearMessages(sessionId: string): Promise<void> {
-    this.messages.set(sessionId, []);
+    await db
+      .delete(messages)
+      .where(eq(messages.sessionId, sessionId));
   }
 
   // Settings methods
   async getSettings(userId: string): Promise<Settings | undefined> {
-    return this.settings.get(userId);
+    const [setting] = await db
+      .select()
+      .from(settings)
+      .where(eq(settings.userId, userId));
+    
+    return setting || undefined;
   }
 
   async createOrUpdateSettings(partialSettings: Partial<InsertSettings> & { userId: string }): Promise<Settings> {
-    const existingSettings = this.settings.get(partialSettings.userId);
+    // Check if settings already exist for this user
+    const existingSettings = await this.getSettings(partialSettings.userId);
     
     if (existingSettings) {
-      const updatedSettings = { ...existingSettings, ...partialSettings };
-      this.settings.set(partialSettings.userId, updatedSettings);
+      // Update existing settings
+      const [updatedSettings] = await db
+        .update(settings)
+        .set(partialSettings)
+        .where(eq(settings.id, existingSettings.id))
+        .returning();
+      
       return updatedSettings;
     } else {
-      const id = this.currentSettingsId++;
-      const defaultSettings: Settings = {
-        id,
-        userId: partialSettings.userId,
+      // Create new settings with defaults and merge with partialSettings
+      const defaultValues = {
         autoDetect: true,
         speechRate: "1.0",
         voiceSelection: "default",
         darkMode: false,
         saveHistory: true,
         person1Language: "en-US",
-        person2Language: "es-ES",
-        ...partialSettings
+        person2Language: "es-ES"
       };
-      this.settings.set(partialSettings.userId, defaultSettings);
-      return defaultSettings;
+      
+      // Combine defaults with partial settings, ensuring userId is only specified once
+      const defaultSettings = { ...defaultValues, ...partialSettings };
+      
+      const [newSettings] = await db
+        .insert(settings)
+        .values(defaultSettings)
+        .returning();
+      
+      return newSettings;
     }
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
