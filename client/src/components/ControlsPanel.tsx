@@ -51,23 +51,24 @@ export default function ControlsPanel({
   };
 
   return (
-    <div className="mt-6 flex justify-center items-center space-x-4">
+    <div className="flex justify-center items-center gap-2 py-2 bg-background/80 backdrop-blur-sm border-t">
       <Button 
         variant="secondary"
         size="icon"
-        className="rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+        className="rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 h-10 w-10"
         onClick={onClearConversation}
         aria-label="Clear conversation"
       >
-        <Trash2 className="h-5 w-5" />
+        <Trash2 className="h-4 w-4" />
       </Button>
 
-      {/* Primary mic button */}
+      {/* Primary mic button - slightly smaller */}
       <Button
         disabled={isListening}
         className={cn(
-          "relative w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center shadow-lg hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all",
-          isListening && "opacity-50 cursor-not-allowed"
+          "relative w-14 h-14 rounded-full bg-primary text-white flex items-center justify-center shadow-lg hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all",
+          isListening && "opacity-50 cursor-not-allowed",
+          isListening && "pulse" // Added pulse animation class
         )}
         onClick={handleMicClick}
         aria-label="Start speaking"
@@ -91,14 +92,15 @@ export default function ControlsPanel({
         <Button
           variant="secondary"
           size="icon"
-          className="rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+          className="rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 h-10 w-10"
           onClick={onSpeakerToggle}
           aria-label="Switch active person"
         >
-          <ArrowUpDown className="h-5 w-5" />
+          <ArrowUpDown className="h-4 w-4" />
         </Button>
-        <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-md text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-          <span>Person {activeSpeakerId} is speaking</span>
+        {/* Changed to a more compact indicator */}
+        <div className="absolute -top-1 -right-1 bg-primary text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+          {activeSpeakerId}
         </div>
       </div>
     </div>

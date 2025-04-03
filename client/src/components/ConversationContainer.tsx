@@ -70,16 +70,16 @@ export default function ConversationContainer({
   };
 
   return (
-    <div className="flex-1 overflow-hidden bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-neutral-300 dark:border-gray-700">
+    <div className="flex-1 overflow-hidden bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-neutral-300 dark:border-gray-700 h-full">
       <div 
         ref={containerRef}
-        className="conversation-container h-full overflow-y-auto p-4 space-y-4"
+        className="conversation-container h-full overflow-y-auto p-3 space-y-3"
       >
         {/* Empty state when no conversation */}
         {messages.length === 0 && !isListening && !isRecognizing && !isTranslating && (
-          <div className="h-full flex flex-col items-center justify-center text-center p-6">
-            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-10 h-10 text-primary">
+          <div className="h-full flex flex-col items-center justify-center text-center p-4">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-primary">
                 <path d="m5 8 6 6" />
                 <path d="m4 14 6-6 2-3" />
                 <path d="M2 5h12" />
@@ -88,59 +88,59 @@ export default function ConversationContainer({
                 <path d="M14 18h6" />
               </svg>
             </div>
-            <h2 className="text-xl font-medium mb-2 dark:text-gray-100">Start a conversation</h2>
-            <p className="text-gray-500 dark:text-gray-400 max-w-md">
-              Tap the microphone button and start speaking. Babel will automatically detect and translate your speech.
+            <h2 className="text-lg font-medium mb-1 dark:text-gray-100">Start a conversation</h2>
+            <p className="text-gray-500 dark:text-gray-400 text-sm max-w-md">
+              Tap the microphone button and start speaking. Your speech will be automatically detected and translated.
             </p>
           </div>
         )}
 
         {/* Conversation messages */}
         {messages.length > 0 && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {messages.map((message) => (
               <div 
                 key={message.id} 
                 className={cn(
-                  "flex items-start space-x-3",
+                  "flex items-start gap-2",
                   message.speakerId === 2 && "flex-row-reverse"
                 )}
               >
                 <div 
                   className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
+                    "w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0",
                     message.speakerId === 1 ? "bg-primary/10" : "bg-secondary/10"
                   )}
                 >
                   <User className={cn(
-                    "h-4 w-4",
+                    "h-3.5 w-3.5",
                     message.speakerId === 1 ? "text-primary" : "text-secondary"
                   )} />
                 </div>
-                <div className={cn("flex-1", message.speakerId === 2 && "text-right")}>
+                <div className={cn("flex-1 space-y-1", message.speakerId === 2 && "text-right")}>
                   <div 
                     className={cn(
-                      "rounded-2xl p-3 inline-block max-w-full",
+                      "rounded-2xl p-2.5 inline-block max-w-full",
                       message.speakerId === 1 
                         ? "bg-neutral-100 dark:bg-gray-700 rounded-tl-none text-left" 
                         : "bg-secondary/10 dark:bg-secondary/20 rounded-tr-none text-left"
                     )}
                   >
-                    <p className="text-gray-800 dark:text-gray-200">{message.translatedText}</p>
+                    <p className="text-gray-800 dark:text-gray-200 text-sm">{message.translatedText}</p>
                   </div>
                   <div 
                     className={cn(
-                      "mt-1 text-xs text-gray-500 dark:text-gray-400 flex items-center space-x-2",
+                      "text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5",
                       message.speakerId === 2 && "justify-end"
                     )}
                   >
-                    <span>Detected: {formatLanguageName(message.originalLanguage)}</span>
+                    <span className="truncate">From: {formatLanguageName(message.originalLanguage)}</span>
                     <span>•</span>
-                    <span>Translated to: {formatLanguageName(message.targetLanguage)}</span>
+                    <span className="truncate">To: {formatLanguageName(message.targetLanguage)}</span>
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="h-6 w-6 rounded-full" 
+                      className="h-5 w-5 rounded-full" 
                       onClick={() => handlePlayTranslation(message)}
                       disabled={playingMessageId === message.id}
                     >
@@ -159,14 +159,14 @@ export default function ConversationContainer({
 
         {/* Listening state indicator */}
         {isListening && (
-          <div className="bg-primary/5 dark:bg-primary/10 rounded-2xl p-4 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-primary pulse flex items-center justify-center">
-                <MicrophoneIcon className="h-5 w-5 text-white" />
+          <div className="bg-primary/5 dark:bg-primary/10 rounded-xl p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-primary pulse flex items-center justify-center">
+                <MicrophoneIcon className="h-4 w-4 text-white" />
               </div>
               <div>
-                <p className="font-medium dark:text-gray-200">{activePersonName}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="font-medium text-sm dark:text-gray-200">{activePersonName}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   Listening to {formatLanguageName(activePersonLanguage)}...
                 </p>
               </div>
@@ -174,25 +174,25 @@ export default function ConversationContainer({
             <Button 
               variant="destructive" 
               size="icon" 
-              className="rounded-full"
+              className="rounded-full h-7 w-7"
               onClick={onStopListening}
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </Button>
           </div>
         )}
 
         {/* Speech recognition in progress */}
         {isRecognizing && (
-          <div className="bg-primary/5 dark:bg-primary/10 rounded-2xl p-4">
-            <div className="flex items-center space-x-3 mb-2">
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                <User className="h-4 w-4 text-primary" />
+          <div className="bg-primary/5 dark:bg-primary/10 rounded-xl p-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                <User className="h-3 w-3 text-primary" />
               </div>
-              <p className="font-medium text-sm text-gray-500 dark:text-gray-400">Recognizing speech...</p>
+              <p className="font-medium text-xs text-gray-500 dark:text-gray-400">Recognizing speech...</p>
             </div>
-            <div className="bg-white dark:bg-gray-700 rounded-xl p-3">
-              <p className="text-gray-800 dark:text-gray-200">
+            <div className="bg-white dark:bg-gray-700 rounded-xl p-2.5">
+              <p className="text-gray-800 dark:text-gray-200 text-sm">
                 {recognitionState.transcript + recognitionState.interimTranscript}
               </p>
             </div>
@@ -201,10 +201,10 @@ export default function ConversationContainer({
 
         {/* Translation in progress */}
         {isTranslating && (
-          <div className="bg-secondary/5 dark:bg-secondary/10 rounded-2xl p-4">
-            <div className="flex items-center space-x-3 mb-2">
-              <div className="w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-secondary">
+          <div className="bg-secondary/5 dark:bg-secondary/10 rounded-xl p-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <div className="w-6 h-6 rounded-full bg-secondary/20 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-secondary">
                   <path d="m5 8 6 6" />
                   <path d="m4 14 6-6 2-3" />
                   <path d="M2 5h12" />
@@ -213,15 +213,15 @@ export default function ConversationContainer({
                   <path d="M14 18h6" />
                 </svg>
               </div>
-              <p className="font-medium text-sm text-gray-500 dark:text-gray-400">
+              <p className="font-medium text-xs text-gray-500 dark:text-gray-400">
                 Translating to {formatLanguageName(activeSpeakerId === 1 ? messages[0]?.targetLanguage : messages[0]?.originalLanguage)}...
               </p>
             </div>
-            <div className="flex justify-center p-2">
+            <div className="flex justify-center p-1.5">
               <div className="flex space-x-1 items-center">
-                <div className="w-2 h-2 bg-secondary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                <div className="w-2 h-2 bg-secondary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                <div className="w-2 h-2 bg-secondary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                <div className="w-1.5 h-1.5 bg-secondary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-1.5 h-1.5 bg-secondary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-1.5 h-1.5 bg-secondary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
               </div>
             </div>
           </div>

@@ -317,8 +317,8 @@ export default function Translator() {
   }, [createMessageMutation]);
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
+    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
+      {/* Header - reduced padding */}
       <Header 
         darkMode={darkMode}
         onDarkModeChange={setDarkMode}
@@ -326,11 +326,11 @@ export default function Translator() {
         onSettingsChange={handleSettingsChange}
       />
       
-      {/* Main content */}
+      {/* Main content with reduced padding */}
       <main className="flex-1 overflow-hidden">
-        <div className="container mx-auto px-4 py-6 h-full flex flex-col">
-          {/* Language Selection */}
-          <div className="flex justify-between items-center mb-4 px-2 flex-wrap gap-4">
+        <div className="container mx-auto px-2 py-2 h-full flex flex-col">
+          {/* Language Selection with reduced margin */}
+          <div className="flex justify-between items-center mb-2 px-1 flex-wrap gap-2">
             <LanguageSelector
               personIndex={1}
               selectedLanguage={speakers[0].languageCode}
@@ -355,35 +355,40 @@ export default function Translator() {
             />
           </div>
           
-          {/* Conversation mode tabs */}
+          {/* Conversation mode tabs with reduced margin */}
           <Tabs defaultValue="standard" className="flex-1 flex flex-col">
-            <TabsList className="grid grid-cols-2 w-[300px] mx-auto mb-4">
+            <TabsList className="grid grid-cols-2 w-[300px] mx-auto mb-2">
               <TabsTrigger value="standard">Standard Mode</TabsTrigger>
               <TabsTrigger value="continuous">Continuous Mode</TabsTrigger>
             </TabsList>
             
             {/* Standard mode */}
             <TabsContent value="standard" className="flex-1 flex flex-col">
-              <ConversationContainer
-                messages={messages}
-                activeSpeakerId={activeSpeakerId}
-                isListening={speechRecognition.state.isListening}
-                isRecognizing={speechRecognition.state.isRecognizing}
-                isTranslating={isTranslating || translation.state.isTranslating}
-                recognitionState={speechRecognition.state}
-                activePersonLanguage={activeSpeaker.languageCode}
-                activePersonName={activeSpeaker.name}
-                onStopListening={handleStopListening}
-              />
+              {/* Adjust the flex to ensure controls are always visible */}
+              <div className="flex-1 min-h-0 mb-2">
+                <ConversationContainer
+                  messages={messages}
+                  activeSpeakerId={activeSpeakerId}
+                  isListening={speechRecognition.state.isListening}
+                  isRecognizing={speechRecognition.state.isRecognizing}
+                  isTranslating={isTranslating || translation.state.isTranslating}
+                  recognitionState={speechRecognition.state}
+                  activePersonLanguage={activeSpeaker.languageCode}
+                  activePersonName={activeSpeaker.name}
+                  onStopListening={handleStopListening}
+                />
+              </div>
               
-              {/* Controls panel */}
-              <ControlsPanel
-                activeSpeakerId={activeSpeakerId}
-                onSpeakerToggle={handleSpeakerToggle}
-                onStartListening={handleStartListening}
-                onClearConversation={handleClearConversation}
-                isListening={speechRecognition.state.isListening}
-              />
+              {/* Controls panel - always visible */}
+              <div className="flex-shrink-0">
+                <ControlsPanel
+                  activeSpeakerId={activeSpeakerId}
+                  onSpeakerToggle={handleSpeakerToggle}
+                  onStartListening={handleStartListening}
+                  onClearConversation={handleClearConversation}
+                  isListening={speechRecognition.state.isListening}
+                />
+              </div>
             </TabsContent>
             
             {/* Continuous mode */}

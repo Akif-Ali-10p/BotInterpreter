@@ -9,5 +9,52 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Make sure the app is fully visible without scrolling */
+  #root {
+    height: 100%;
+    max-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Add custom scrollbar for conversation containers */
+  .conversation-container {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(155, 155, 155, 0.5) transparent;
+  }
+  
+  .conversation-container::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .conversation-container::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .conversation-container::-webkit-scrollbar-thumb {
+    background-color: rgba(155, 155, 155, 0.5);
+    border-radius: 20px;
+    border: transparent;
+  }
+
+  /* Animation for microphone pulse */
+  .pulse {
+    animation: pulse 1.5s infinite;
+  }
+  
+  @keyframes pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(var(--primary), 0.7);
+    }
+    70% {
+      box-shadow: 0 0 0 10px rgba(var(--primary), 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(var(--primary), 0);
+    }
   }
 }
