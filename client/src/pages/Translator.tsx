@@ -6,6 +6,7 @@ import Header from '@/components/Header';
 import LanguageSelector from '@/components/LanguageSelector';
 import ConversationContainer from '@/components/ConversationContainer';
 import ContinuousConversation from '@/components/ContinuousConversation';
+import ConversationReplay from '@/components/ConversationReplay';
 import ControlsPanel from '@/components/ControlsPanel';
 import useSpeechRecognition from '@/hooks/useSpeechRecognition';
 import useSpeechSynthesis from '@/hooks/useSpeechSynthesis';
@@ -14,7 +15,7 @@ import { Message, SpeakerId, Speaker, Settings } from '@/types';
 import { SUPPORTED_LANGUAGES, getBrowserLanguage } from '@/lib/languageUtils';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeftRight } from 'lucide-react';
+import { ArrowLeftRight, History } from 'lucide-react';
 import { formatLanguageName, sleep } from '@/lib/utils';
 
 export default function Translator() {
@@ -50,6 +51,7 @@ export default function Translator() {
   
   // State for UI flags
   const [isTranslating, setIsTranslating] = useState(false);
+  const [isReplayOpen, setIsReplayOpen] = useState(false);
   
   // Get custom hooks
   const speechRecognition = useSpeechRecognition();
@@ -315,9 +317,39 @@ export default function Translator() {
   const handleNewMessage = useCallback((message: Message) => {
     createMessageMutation.mutate(message);
   }, [createMessageMutation]);
+  
+  // Handle opening and closing the replay modal
+  const handleOpenReplay = useCallback(() => {
+    if (messages.length > 0) {
+      setIsReplayOpen(true);
+      toast({
+        title: "Conversation Replay",
+        description: "Replay the entire conversation with audio playback"
+      });
+    } else {
+      toast({
+        title: "No conversation to replay",
+        description: "Start a conversation first before using replay",
+        variant: "destructive"
+      });
+    }
+  }, [messages.length, toast]);
+  
+  const handleCloseReplay = useCallback(() => {
+    setIsReplayOpen(false);
+  }, []);
 
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
+      {/* Conversation Replay Modal */}
+      <ConversationReplay
+        messages={messages}
+        speaker1={speakers[0]}
+        speaker2={speakers[1]}
+        isOpen={isReplayOpen}
+        onClose={handleCloseReplay}
+      />
+      
       {/* Header - reduced padding */}
       <Header 
         darkMode={darkMode}
@@ -386,6 +418,7 @@ export default function Translator() {
                   onSpeakerToggle={handleSpeakerToggle}
                   onStartListening={handleStartListening}
                   onClearConversation={handleClearConversation}
+                  onOpenReplay={handleOpenReplay}
                   isListening={speechRecognition.state.isListening}
                 />
               </div>
@@ -400,6 +433,7 @@ export default function Translator() {
                 activeSpeakerId={activeSpeakerId}
                 onSpeakerToggle={handleSpeakerToggle}
                 onClearConversation={handleClearConversation}
+                onOpenReplay={handleOpenReplay}
                 messages={messages}
                 onNewMessage={handleNewMessage}
                 autoPlay={settings.voiceSelection !== 'none'}

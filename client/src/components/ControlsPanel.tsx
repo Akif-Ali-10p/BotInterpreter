@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Trash2, ArrowUpDown, Mic } from 'lucide-react';
+import { Trash2, ArrowUpDown, Mic, History } from 'lucide-react';
 import { SpeakerId } from '@/types';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,7 @@ interface ControlsPanelProps {
   onSpeakerToggle: () => void;
   onStartListening: () => void;
   onClearConversation: () => void;
+  onOpenReplay?: () => void;
   isListening: boolean;
 }
 
@@ -17,6 +18,7 @@ export default function ControlsPanel({
   onSpeakerToggle,
   onStartListening,
   onClearConversation,
+  onOpenReplay,
   isListening
 }: ControlsPanelProps) {
   const [ripple, setRipple] = useState<{ active: boolean, x: number, y: number }>({
@@ -61,6 +63,19 @@ export default function ControlsPanel({
       >
         <Trash2 className="h-4 w-4" />
       </Button>
+      
+      {/* Replay button */}
+      {onOpenReplay && (
+        <Button 
+          variant="secondary"
+          size="icon"
+          className="rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 h-10 w-10"
+          onClick={onOpenReplay}
+          aria-label="Replay conversation"
+        >
+          <History className="h-4 w-4" />
+        </Button>
+      )}
 
       {/* Primary mic button - slightly smaller */}
       <Button

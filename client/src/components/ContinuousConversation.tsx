@@ -10,7 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Mic, MicOff, Loader2, Languages, ArrowDownUp, Settings, Trash2, HelpCircle, Volume2 } from "lucide-react";
+import { Mic, MicOff, Loader2, Languages, ArrowDownUp, Settings, Trash2, HelpCircle, Volume2, History } from "lucide-react";
 import { Message, SpeakerId, Speaker } from '@/types';
 import { cn, generatePhoneticGuide } from '@/lib/utils';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
@@ -26,6 +26,7 @@ interface ContinuousConversationProps {
   activeSpeakerId: SpeakerId;
   onSpeakerToggle: () => void;
   onClearConversation: () => void;
+  onOpenReplay?: () => void;
   messages: Message[];
   onNewMessage: (message: Message) => void;
   autoPlay?: boolean;
@@ -38,6 +39,7 @@ export default function ContinuousConversation({
   activeSpeakerId,
   onSpeakerToggle,
   onClearConversation,
+  onOpenReplay,
   messages,
   onNewMessage,
   autoPlay = true
@@ -251,6 +253,25 @@ export default function ContinuousConversation({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+          
+          {onOpenReplay && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    onClick={onOpenReplay}
+                  >
+                    <History className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Replay conversation history</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
 
         <div className="flex items-center space-x-4">
