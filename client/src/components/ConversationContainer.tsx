@@ -122,30 +122,44 @@ export default function ConversationContainer({
                         : "bg-secondary/10 dark:bg-secondary/20 rounded-tr-none text-left"
                     )}
                   >
-                    <div className="text-gray-800 dark:text-gray-200 text-sm">
-                      {message.translatedText}
+                    <div className="space-y-2">
+                      {/* Original text */}
+                      <div className="text-gray-600 dark:text-gray-400 text-sm border-b border-gray-200 dark:border-gray-600 pb-1.5">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-500 block mb-0.5">
+                          Original ({formatLanguageName(message.originalLanguage)}):
+                        </span>
+                        {message.originalText}
+                      </div>
                       
-                      {/* Phonetic pronunciation guide */}
-                      {message.translatedText && message.targetLanguage && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="inline-flex items-center ml-1 align-text-bottom">
-                                <HelpCircle className="h-3 w-3 text-primary/60 cursor-help" />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs">
-                              <div className="space-y-1">
-                                <p className="font-medium text-xs">Pronunciation Guide</p>
-                                <p className="text-xs font-mono">
-                                  {generatePhoneticGuide(message.translatedText, message.targetLanguage) || 
-                                   "No pronunciation guide available for this language."}
-                                </p>
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
+                      {/* Translated text */}
+                      <div className="text-gray-800 dark:text-gray-200 text-sm">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-500 block mb-0.5">
+                          Translated ({formatLanguageName(message.targetLanguage)}):
+                        </span>
+                        {message.translatedText}
+                        
+                        {/* Phonetic pronunciation guide */}
+                        {message.translatedText && message.targetLanguage && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="inline-flex items-center ml-1 align-text-bottom">
+                                  <HelpCircle className="h-3 w-3 text-primary/60 cursor-help" />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <div className="space-y-1">
+                                  <p className="font-medium text-xs">Pronunciation Guide</p>
+                                  <p className="text-xs font-mono">
+                                    {generatePhoneticGuide(message.translatedText, message.targetLanguage) || 
+                                     "No pronunciation guide available for this language."}
+                                  </p>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
                     </div>
                     
                     {/* Display phonetic spelling directly below for selected languages */}

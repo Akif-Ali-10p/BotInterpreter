@@ -275,6 +275,9 @@ export default function ConversationReplay({
                         : "bg-secondary/10 dark:bg-secondary/20 rounded-tr-none text-left"
                     )}
                   >
+                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                      Original ({message.originalLanguage})
+                    </div>
                     <p className="text-gray-800 dark:text-gray-200">{message.originalText}</p>
                   </div>
                   
@@ -286,6 +289,9 @@ export default function ConversationReplay({
                         : "bg-neutral-100 dark:bg-gray-700 rounded-br-none text-left"
                     )}
                   >
+                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                      Translated to {message.targetLanguage}
+                    </div>
                     <p className="text-gray-800 dark:text-gray-200">{message.translatedText}</p>
                     
                     {/* Phonetic spelling for selected languages */}

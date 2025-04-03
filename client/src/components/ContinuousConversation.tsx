@@ -341,10 +341,15 @@ export default function ContinuousConversation({
                 {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
-            <p>{message.originalText}</p>
+            <div className="mb-2">
+              <span className="text-xs font-medium block mb-0.5">
+                Original ({message.originalLanguage}):
+              </span>
+              <p>{message.originalText}</p>
+            </div>
             <div className="mt-2 pt-2 border-t border-muted-foreground/20">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-medium">Translated</span>
+                <span className="text-xs font-medium">Translated to {message.targetLanguage}</span>
                 <div className="flex items-center gap-1">
                   <TooltipProvider>
                     <Tooltip>
