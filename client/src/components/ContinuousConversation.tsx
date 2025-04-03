@@ -113,16 +113,22 @@ export default function ContinuousConversation({
     
     setIsListening(true);
     
+    // Check if we should use continuous mode or not
+    const useContinuous = continuousMode;
+    
     // Start speech recognition with callbacks for interim and final results
     speechRecognition.startListening(
       activeSpeaker.languageCode,
-      true,
+      useContinuous, // Use the continuousMode state to determine if we should use continuous mode
       // Interim result callback
       (text) => {
         setInterimText(text);
         
-        // Send interim text via WebSocket
-        sendContinuousSpeech(text, activeSpeakerId, passiveSpeaker.languageCode);
+        // Only send interim text in continuous mode
+        if (useContinuous) {
+          // Send interim text via WebSocket
+          sendContinuousSpeech(text, activeSpeakerId, passiveSpeaker.languageCode);
+        }
       },
       // Final result callback
       (text) => {
@@ -137,6 +143,12 @@ export default function ContinuousConversation({
           
           // Clear interim text
           setInterimText('');
+          
+          // If not in continuous mode, we should stop listening after getting a final result
+          if (!useContinuous) {
+            speechRecognition.stopListening();
+            setIsListening(false);
+          }
         }
       }
     );
@@ -147,7 +159,8 @@ export default function ContinuousConversation({
     speechRecognition, 
     isConnected, 
     sendSpeech, 
-    sendContinuousSpeech
+    sendContinuousSpeech,
+    continuousMode // Add continuousMode to dependency array
   ]);
 
   // Stop continuous recognition
