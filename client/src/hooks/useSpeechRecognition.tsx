@@ -151,10 +151,43 @@ function setupSpeechRecognitionHandlers(
     if (isContinuous && wasListening && !currentState.error) {
       try {
         setTimeout(() => {
+          // Important: Creating a new instance helps with stability - browsers can leave the
+          // recognition in a bad state
           if (recognition) {
-            recognition.start();
+            try {
+              // Sometimes closing can throw errors too
+              recognition.stop();
+            } catch (e) {
+              console.log('Error stopping recognition before restart:', e);
+            }
+            
+            // Create a brand new instance
+            try {
+              const newRecognition = new SpeechRecognition();
+              newRecognition.continuous = isContinuous;
+              newRecognition.interimResults = true;
+              newRecognition.lang = currentState.language || 'en-US';
+              
+              // Set up event handlers again
+              setupSpeechRecognitionHandlers(
+                newRecognition, 
+                isContinuous, 
+                interimCallback, 
+                finalCallback,
+                undefined,
+                stateManager,
+                currentState
+              );
+              
+              // Start the new instance
+              newRecognition.start();
+              
+              console.log('Successfully restarted speech recognition with a new instance');
+            } catch (newError) {
+              console.error('Failed to create new recognition instance on restart:', newError);
+            }
           }
-        }, 500);
+        }, 800); // Slightly longer delay for stability
       } catch (error) {
         console.error('Error restarting speech recognition:', error);
       }
@@ -206,6 +239,12 @@ export function useSpeechRecognition(): SpeechRecognitionHook {
       recognitionRef.current.continuous = continuous;
       recognitionRef.current.interimResults = true;
     }
+
+    // Update language in state for better recovery
+    setState(prev => ({ 
+      ...prev, 
+      language: language 
+    }));
 
     // Set language and start
     recognitionRef.current.lang = language;

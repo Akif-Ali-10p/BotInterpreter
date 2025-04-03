@@ -174,16 +174,56 @@ export function useSpeechSynthesis(): SpeechSynthesisHook {
           console.warn('Speech did not start within timeout, attempting restart');
           // Attempt to restart synthesis
           window.speechSynthesis.cancel();
+          
+          // Create a new utterance object - this helps avoid issues with corrupted state
+          const newUtterance = new SpeechSynthesisUtterance(text);
+          utteranceRef.current = newUtterance;
+          
+          // Copy over all the options
+          if (options.voice) newUtterance.voice = options.voice;
+          if (options.rate !== undefined) newUtterance.rate = options.rate;
+          if (options.pitch !== undefined) newUtterance.pitch = options.pitch;
+          if (options.volume !== undefined) newUtterance.volume = options.volume;
+          if (options.lang) newUtterance.lang = options.lang;
+          
+          // Set up the event handlers again
+          newUtterance.onstart = () => {
+            setState(prev => ({ ...prev, isSpeaking: true, isPaused: false, error: null }));
+          };
+          newUtterance.onend = handleSpeechComplete;
+          newUtterance.onerror = handleSpeechError;
+          
+          // Update global reference for Safari
+          if (typeof window !== 'undefined') {
+            (window as any).lastUtterance = newUtterance;
+          }
+          
+          // Try to forcibly resume any suspended audio contexts (helps with Chrome/Safari issues)
+          try {
+            // Access any potentially suspended audio contexts
+            // This is a non-standard approach that might work in some browsers
+            const anyWindow = window as any;
+            if (anyWindow.speechSynthesis && 
+                anyWindow.speechSynthesis.context && 
+                anyWindow.speechSynthesis.context.state === 'suspended') {
+              anyWindow.speechSynthesis.context.resume();
+            }
+          } catch (e) {
+            // This is experimental and may not be available in all browsers
+          }
+          
           window.speechSynthesis.resume(); // Workaround for Chrome
+          
+          // Wait a bit longer before retry
           setTimeout(() => {
             try {
-              window.speechSynthesis.speak(utterance);
+              window.speechSynthesis.speak(newUtterance);
             } catch (error: any) {
               console.error('Error during speech restart:', error);
             }
-          }, 150);
+          }, 300);
         }
-      }, 1000);
+      }, 1500);
     } catch (error: any) {
       console.error('Error during initial speech synthesis:', error);
       setState(prev => ({ 

@@ -176,13 +176,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Also clean up any broken connections
     if (wss.clients) {
       wss.clients.forEach(client => {
-        if (client.readyState !== WebSocket.OPEN && client.readyState !== WebSocket.CONNECTING) {
+        // Check for broken connections or connections without activity
+        if (client.readyState !== WebSocket.OPEN && client.readyState !== WebSocket.CONNECTING ||
+            !lastActivity.has(client)) {
           try {
+            console.log('Terminating broken or stale WebSocket connection');
             client.terminate();
           } catch (err) {
             console.error('Error terminating broken connection:', err);
           }
           lastActivity.delete(client);
+          
+          // Also remove from any sessions
+          // Convert the entries to an array first to avoid iteration issues
+          const sessionEntries = Array.from(sessions.entries());
+          for (const [sessionId, clients] of sessionEntries) {
+            if (clients.has(client)) {
+              clients.delete(client);
+              console.log(`Removed broken connection from session ${sessionId}`);
+              
+              // If no more clients in this session, clean up the session
+              if (clients.size === 0) {
+                sessions.delete(sessionId);
+                console.log(`Removed empty session ${sessionId}`);
+              }
+            }
+          }
         }
       });
     }

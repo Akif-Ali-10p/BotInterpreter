@@ -52,6 +52,7 @@ export interface SpeechRecognitionState {
   interimTranscript: string;
   error: string | null;
   isRecognizing: boolean;
+  language?: string; // Added language property for better restart handling
 }
 
 // For each speaker
